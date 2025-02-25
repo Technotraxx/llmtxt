@@ -288,7 +288,7 @@ def main():
             # Option to process another file
             if st.button("Process Another File"):
                 upload_placeholder.empty()
-                st.experimental_rerun()
+                st.rerun()  # Using st.rerun() instead of deprecated st.experimental_rerun()
         else:
             st.error(f"Error: {stats.get('error', 'Unknown error')}")
 
