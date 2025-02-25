@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import zipfile
 import io
 import re
@@ -48,10 +49,18 @@ def create_download_link(file_content, file_name):
 
 def extract_svg_from_response(response_content):
     """Extract SVG content from the API response using regex."""
-    svg_pattern = r'<svg.*?>(.*?)</svg>'
+    svg_pattern = r'<svg[^>]*>(.*?)</svg>'
     match = re.search(svg_pattern, response_content, re.DOTALL)
     
     if match:
+        # Get the full SVG tag including attributes
+        start_idx = response_content.find('<svg')
+        end_idx = response_content.find('</svg>') + 6  # Include the closing tag
+        
+        if start_idx != -1 and end_idx != -1:
+            return response_content[start_idx:end_idx]
+        
+        # Fallback to basic extraction
         svg_content = f'<svg>{match.group(1)}</svg>'
         return svg_content
     return None
@@ -467,7 +476,13 @@ def main():
                             
                             if result["svg"]:
                                 st.markdown("### Repository Diagram")
-                                st.markdown(result["svg"], unsafe_allow_html=True)
+                                # Properly format the SVG for safe HTML rendering
+                                svg_html = f"""
+                                <div style="width:100%; overflow:auto;">
+                                    {result["svg"]}
+                                </div>
+                                """
+                                st.components.v1.html(svg_html, height=700, scrolling=True)
                                 
                                 # Also provide a download for the SVG
                                 svg_download = create_download_link(result["svg"], "repository_overview.svg")
