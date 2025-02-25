@@ -66,7 +66,7 @@ def extract_summary_from_response(response_content):
     return None
 
 def generate_svg_from_llm_text(llm_text, api_key):
-    """Generate an SVG representation of the code repository using Anthropic API."""
+    """Generate an SVG representation of the code repository using Anthropic API with streaming."""
     try:
         client = anthropic.Anthropic(api_key=api_key)
         
@@ -121,7 +121,13 @@ Remember, your output should only include the summary and SVG code as specified 
         # Replace placeholder with actual code repository content
         system_prompt = system_prompt.replace("{code_repo}", llm_text)
         
-        message = client.messages.create(
+        # Create a placeholder for streaming updates
+        status_placeholder = st.empty()
+        status_placeholder.text("Starting the repository analysis...")
+        
+        # Use streaming for the API call
+        response_content = ""
+        with client.messages.stream(
             model="claude-3-7-sonnet-20250219",
             max_tokens=64000,
             temperature=0.7,
@@ -137,9 +143,29 @@ Remember, your output should only include the summary and SVG code as specified 
                     ]
                 }
             ]
-        )
+        ) as stream:
+            status_placeholder.text("Analyzing repository structure...")
+            
+            # Initialize a counter for periodic updates
+            chunk_counter = 0
+            
+            for chunk in stream:
+                # Accumulate the response
+                if chunk.type == "content_block_delta" and hasattr(chunk, "delta") and hasattr(chunk.delta, "text"):
+                    response_content += chunk.delta.text
+                    
+                    # Provide periodic status updates
+                    chunk_counter += 1
+                    if chunk_counter % 10 == 0:
+                        if "<summary>" in response_content and "<svg>" not in response_content:
+                            status_placeholder.text("Writing the repository summary...")
+                        elif "<svg>" in response_content:
+                            status_placeholder.text("Generating the visualization diagram...")
+                        else:
+                            status_placeholder.text("Analyzing repository structure...")
         
-        response_content = message.content[0].text
+        # Clear the status placeholder
+        status_placeholder.empty()
         
         # Extract the SVG and summary from the response
         svg_content = extract_svg_from_response(response_content)
